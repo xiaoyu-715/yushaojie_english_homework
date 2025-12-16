@@ -8,6 +8,7 @@ import androidx.room.RoomDatabase;
 import androidx.room.TypeConverters;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
+import androidx.room.RoomDatabase.Callback;
 
 import com.example.mybighomework.database.converter.DateConverter;
 import com.example.mybighomework.database.converter.StringArrayConverter;
@@ -57,13 +58,14 @@ import com.example.mybighomework.database.entity.WrongQuestionEntity;
         QuestionNoteEntity.class,
         ExamResultEntity.class
     },
-    version = 13,  // 更新版本号（添加exam_results表用于保存考试成绩）
+    version = 14,  // 更新版本号（添加translation_history表用于保存翻译历史）
     exportSchema = false
 )
 @TypeConverters({DateConverter.class, StringArrayConverter.class})
 public abstract class AppDatabase extends RoomDatabase {
     
     private static volatile AppDatabase INSTANCE;
+    private static volatile Context sContext;
     private static final String DATABASE_NAME = "english_learning_db";
     
     /**
@@ -170,6 +172,35 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
     
+    /**
+     * 数据库迁移：版本13到版本14
+     * 添加translation_history表，用于保存翻译历史
+     */
+    static final Migration MIGRATION_13_14 = new Migration(13, 14) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            try {
+                // 创建translation_history表
+                database.execSQL("CREATE TABLE IF NOT EXISTS translation_history (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "sourceText TEXT, " +
+                    "translatedText TEXT, " +
+                    "sourceLanguage TEXT, " +
+                    "targetLanguage TEXT, " +
+                    "isFavorited INTEGER NOT NULL DEFAULT 0, " +
+                    "createTime INTEGER NOT NULL DEFAULT 0, " +
+                    "lastViewTime INTEGER NOT NULL DEFAULT 0, " +
+                    "viewCount INTEGER NOT NULL DEFAULT 0)");
+                // 创建索引
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_translation_history_createTime ON translation_history(createTime)");
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_translation_history_isFavorited ON translation_history(isFavorited)");
+            } catch (Exception e) {
+                android.util.Log.e("AppDatabase", "数据库迁移13->14失败", e);
+                throw e;
+            }
+        }
+    };
+    
     public abstract StudyPlanDao studyPlanDao();
     public abstract VocabularyDao vocabularyDao();
     public abstract ExamDao examDao();
@@ -189,18 +220,85 @@ public abstract class AppDatabase extends RoomDatabase {
         if (INSTANCE == null) {
             synchronized (AppDatabase.class) {
                 if (INSTANCE == null) {
-                    INSTANCE = Room.databaseBuilder(
-                        context.getApplicationContext(),
-                        AppDatabase.class,
-                        DATABASE_NAME
-                    )
-                    // 已移除 allowMainThreadQueries()，所有数据库操作必须在后台线程
-                    .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
-                    .fallbackToDestructiveMigration()
-                    .build();
+                    android.util.Log.d("AppDatabase", "开始初始化数据库...");
+                    Context appContext = context.getApplicationContext();
+                    sContext = appContext; // 保存 Context 引用，用于后续删除数据库
                     
-                    // 在后台线程初始化默认用户设置
-                    initializeDefaultSettingsAsync(INSTANCE);
+                    // 检查数据库文件是否存在，如果存在但可能版本不匹配，先删除
+                    // 这样可以避免 identity hash 不匹配的错误
+                    try {
+                        String dbPath = appContext.getDatabasePath(DATABASE_NAME).getPath();
+                        java.io.File dbFile = new java.io.File(dbPath);
+                        if (dbFile.exists()) {
+                            android.util.Log.d("AppDatabase", "检测到现有数据库文件，检查是否需要重建...");
+                            // 由于 Room 会在打开时验证 identity hash，如果版本不匹配会失败
+                            // 这里先尝试构建，如果失败会在 catch 中处理
+                        }
+                    } catch (Exception e) {
+                        android.util.Log.w("AppDatabase", "检查数据库文件时出错", e);
+                    }
+                    
+                    try {
+                        INSTANCE = Room.databaseBuilder(
+                            appContext,
+                            AppDatabase.class,
+                            DATABASE_NAME
+                        )
+                        // 已移除 allowMainThreadQueries()，所有数据库操作必须在后台线程
+                        .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                        .fallbackToDestructiveMigration()
+                        .addCallback(new Callback() {
+                            @Override
+                            public void onOpen(@androidx.annotation.NonNull SupportSQLiteDatabase db) {
+                                super.onOpen(db);
+                                android.util.Log.d("AppDatabase", "数据库打开成功");
+                            }
+                        })
+                        .build();
+                        
+                        android.util.Log.d("AppDatabase", "数据库初始化成功");
+                        
+                        // 在后台线程初始化默认用户设置
+                        initializeDefaultSettingsAsync(INSTANCE);
+                    } catch (IllegalStateException e) {
+                        android.util.Log.e("AppDatabase", "数据库初始化失败 (IllegalStateException)", e);
+                        android.util.Log.e("AppDatabase", "错误详情: " + e.getMessage());
+                        e.printStackTrace();
+                        
+                        // 检查是否是 identity hash 不匹配错误
+                        if (e.getMessage() != null && e.getMessage().contains("identity hash")) {
+                            android.util.Log.w("AppDatabase", "检测到数据库 schema 不匹配，删除旧数据库文件...");
+                            try {
+                                // 删除数据库文件
+                                appContext.deleteDatabase(DATABASE_NAME);
+                                android.util.Log.d("AppDatabase", "旧数据库文件已删除");
+                                
+                                // 重新构建数据库
+                                INSTANCE = Room.databaseBuilder(
+                                    appContext,
+                                    AppDatabase.class,
+                                    DATABASE_NAME
+                                )
+                                .fallbackToDestructiveMigration()
+                                .build();
+                                android.util.Log.d("AppDatabase", "数据库重建成功");
+                                initializeDefaultSettingsAsync(INSTANCE);
+                            } catch (Exception e2) {
+                                android.util.Log.e("AppDatabase", "数据库重建失败", e2);
+                                android.util.Log.e("AppDatabase", "错误详情: " + e2.getMessage());
+                                e2.printStackTrace();
+                                throw new RuntimeException("无法初始化数据库: " + e2.getMessage(), e2);
+                            }
+                        } else {
+                            // 其他类型的 IllegalStateException
+                            throw new RuntimeException("无法初始化数据库: " + e.getMessage(), e);
+                        }
+                    } catch (Exception e) {
+                        android.util.Log.e("AppDatabase", "数据库初始化失败 (Exception)", e);
+                        android.util.Log.e("AppDatabase", "错误详情: " + e.getMessage());
+                        e.printStackTrace();
+                        throw new RuntimeException("无法初始化数据库: " + e.getMessage(), e);
+                    }
                 }
             }
         }
@@ -214,6 +312,40 @@ public abstract class AppDatabase extends RoomDatabase {
                 if (settings == null) {
                     settings = new UserSettingsEntity();
                     database.userSettingsDao().insert(settings);
+                }
+            } catch (IllegalStateException e) {
+                // 检查是否是 identity hash 不匹配错误
+                if (e.getMessage() != null && e.getMessage().contains("identity hash")) {
+                    android.util.Log.e("AppDatabase", "检测到数据库 schema 不匹配错误，尝试删除并重建数据库", e);
+                    try {
+                        // 删除数据库文件并重建
+                        if (sContext != null) {
+                            synchronized (AppDatabase.class) {
+                                INSTANCE = null; // 清除实例
+                                sContext.deleteDatabase(DATABASE_NAME);
+                                android.util.Log.d("AppDatabase", "旧数据库文件已删除，重新构建数据库...");
+                                
+                                // 重新构建数据库
+                                INSTANCE = Room.databaseBuilder(
+                                    sContext,
+                                    AppDatabase.class,
+                                    DATABASE_NAME
+                                )
+                                .fallbackToDestructiveMigration()
+                                .build();
+                                
+                                android.util.Log.d("AppDatabase", "数据库重建成功");
+                                
+                                // 重新初始化默认设置
+                                initializeDefaultSettingsAsync(INSTANCE);
+                            }
+                        }
+                    } catch (Exception e2) {
+                        android.util.Log.e("AppDatabase", "删除并重建数据库失败", e2);
+                        e2.printStackTrace();
+                    }
+                } else {
+                    e.printStackTrace();
                 }
             } catch (Exception e) {
                 e.printStackTrace();

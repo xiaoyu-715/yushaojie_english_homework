@@ -29,14 +29,21 @@ public class MainViewModel extends AndroidViewModel {
     public MainViewModel(@NonNull Application application) {
         super(application);
         
-        // 初始化数据库和Repository
-        AppDatabase database = AppDatabase.getInstance(application);
-        vocabularyRepository = new VocabularyRecordRepository(database.vocabularyDao());
-        examRepository = new ExamRecordRepository(database.examDao());
-        
-        // 初始化 LiveData（会自动在后台线程执行查询）
-        vocabularyCount = vocabularyRepository.getTotalVocabularyCountLive();
-        masteredVocabularyCount = vocabularyRepository.getMasteredVocabularyCountLive();
+        try {
+            // 初始化数据库和Repository
+            AppDatabase database = AppDatabase.getInstance(application);
+            vocabularyRepository = new VocabularyRecordRepository(database.vocabularyDao());
+            examRepository = new ExamRecordRepository(database.examDao());
+            
+            // 初始化 LiveData（会自动在后台线程执行查询）
+            vocabularyCount = vocabularyRepository.getTotalVocabularyCountLive();
+            masteredVocabularyCount = vocabularyRepository.getMasteredVocabularyCountLive();
+        } catch (Exception e) {
+            android.util.Log.e("MainViewModel", "ViewModel初始化失败", e);
+            // 创建空的Repository以避免NullPointerException
+            // 这里需要处理异常情况，但为了不崩溃，我们先抛出异常让系统处理
+            throw new RuntimeException("ViewModel初始化失败", e);
+        }
     }
     
     // ==================== 暴露 LiveData 给 UI 层 ====================

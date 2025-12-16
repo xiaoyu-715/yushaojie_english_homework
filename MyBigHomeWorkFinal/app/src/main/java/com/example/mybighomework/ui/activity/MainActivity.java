@@ -48,21 +48,51 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        // 初始化 ViewModel（自动管理生命周期）
-        viewModel = new ViewModelProvider(this).get(MainViewModel.class);
-        
-        // 初始化 Repository（用于其他功能）
-        userSettingsRepository = new UserSettingsRepository(this);
-        AppDatabase database = AppDatabase.getInstance(this);
-        vocabularyRecordRepository = new VocabularyRecordRepository(database.vocabularyDao());
-        examRecordRepository = new ExamRecordRepository(database.examDao());
-        
-        // 初始化题目数据（首次运行或数据更新时）
-        QuestionDataInitializer.initializeIfNeeded(getApplication());
-        
-        setupClickListeners();
-        observeViewModel();
-        updateTaskProgress();
+        try {
+            android.util.Log.d("MainActivity", "开始初始化...");
+            
+            // 初始化 ViewModel（自动管理生命周期）
+            android.util.Log.d("MainActivity", "初始化 ViewModel...");
+            viewModel = new ViewModelProvider(this).get(MainViewModel.class);
+            
+            // 初始化 Repository（用于其他功能）
+            android.util.Log.d("MainActivity", "初始化 Repository...");
+            userSettingsRepository = new UserSettingsRepository(this);
+            android.util.Log.d("MainActivity", "获取数据库实例...");
+            AppDatabase database = AppDatabase.getInstance(this);
+            android.util.Log.d("MainActivity", "创建 Repository...");
+            vocabularyRecordRepository = new VocabularyRecordRepository(database.vocabularyDao());
+            examRecordRepository = new ExamRecordRepository(database.examDao());
+            
+            // 初始化题目数据（首次运行或数据更新时）
+            android.util.Log.d("MainActivity", "初始化题目数据...");
+            QuestionDataInitializer.initializeIfNeeded(getApplication());
+            
+            android.util.Log.d("MainActivity", "设置监听器...");
+            setupClickListeners();
+            observeViewModel();
+            updateTaskProgress();
+            
+            android.util.Log.d("MainActivity", "初始化完成");
+        } catch (RuntimeException e) {
+            android.util.Log.e("MainActivity", "初始化失败 (RuntimeException)", e);
+            android.util.Log.e("MainActivity", "错误详情: " + e.getMessage());
+            if (e.getCause() != null) {
+                android.util.Log.e("MainActivity", "根本原因: " + e.getCause().getMessage());
+                e.getCause().printStackTrace();
+            }
+            e.printStackTrace();
+            android.widget.Toast.makeText(this, "应用初始化失败: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+            // 延迟 finish，让用户看到错误信息
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> finish(), 3000);
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "初始化失败 (Exception)", e);
+            android.util.Log.e("MainActivity", "错误详情: " + e.getMessage());
+            e.printStackTrace();
+            android.widget.Toast.makeText(this, "应用初始化失败: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+            // 延迟 finish，让用户看到错误信息
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> finish(), 3000);
+        }
     }
     
     private void setupClickListeners() {
