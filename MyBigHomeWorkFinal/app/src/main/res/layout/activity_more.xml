@@ -301,7 +301,7 @@
                         android:background="#E0E0E0"
                         android:layout_marginVertical="4dp" />
 
-                    <!-- GLM-4.6V-Flash AI 学习助手 -->
+                    <!-- GLM-4-Flash AI 学习助手 -->
                     <LinearLayout
                         android:id="@+id/btn_glm_chat"
                         android:layout_width="match_parent"

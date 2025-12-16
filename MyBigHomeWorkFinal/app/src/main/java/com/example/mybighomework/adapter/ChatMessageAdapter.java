@@ -4,11 +4,12 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.button.MaterialButton;
 
 import com.example.mybighomework.R;
 import com.example.mybighomework.model.ChatMessage;
@@ -97,7 +98,7 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
      */
     class ReceivedMessageViewHolder extends RecyclerView.ViewHolder {
         TextView tvMessage, tvTime;
-        Button btnGeneratePlan;
+        MaterialButton btnGeneratePlan;
         
         public ReceivedMessageViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -111,15 +112,17 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
             tvTime.setText(timeFormat.format(new Date(message.getTimestamp())));
             
             // 控制生成学习计划按钮的可见性
-            if (message.isShowGeneratePlanButton()) {
-                btnGeneratePlan.setVisibility(View.VISIBLE);
-                btnGeneratePlan.setOnClickListener(v -> {
-                    if (generatePlanClickListener != null) {
-                        generatePlanClickListener.onGeneratePlanClick(getAdapterPosition());
-                    }
-                });
-            } else {
-                btnGeneratePlan.setVisibility(View.GONE);
+            if (btnGeneratePlan != null) {
+                if (message.isShowGeneratePlanButton()) {
+                    btnGeneratePlan.setVisibility(View.VISIBLE);
+                    btnGeneratePlan.setOnClickListener(v -> {
+                        if (generatePlanClickListener != null) {
+                            generatePlanClickListener.onGeneratePlanClick(getAdapterPosition());
+                        }
+                    });
+                } else {
+                    btnGeneratePlan.setVisibility(View.GONE);
+                }
             }
         }
     }

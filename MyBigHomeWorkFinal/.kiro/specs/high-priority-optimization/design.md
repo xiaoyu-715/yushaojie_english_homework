@@ -137,9 +137,9 @@ public final class NavigationHelper {
     public static void toCameraTranslation(Context context);
     
     /**
-     * 跳转到AI助手页面
+     * 跳转到AI助手页面（智谱GLM-4-Flash）
      */
-    public static void toDeepSeekChat(Context context);
+    public static void toGlmChat(Context context);
     
     /**
      * 跳转到文本翻译页面

@@ -1,5 +1,6 @@
 package com.example.mybighomework;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
@@ -13,11 +14,15 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.example.mybighomework.api.ZhipuAIService;
+import com.example.mybighomework.api.ZhipuAIService.TranslateCallback;
 import com.example.mybighomework.database.AppDatabase;
 import com.example.mybighomework.database.entity.TranslationHistoryEntity;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 文本翻译Activity
@@ -155,12 +160,58 @@ public class TextTranslationActivity extends AppCompatActivity {
      * 实际应用中应该调用有道文本翻译API或其他翻译服务
      */
     private String translateText(String text, String from, String to) {
-        // TODO: 实现真正的文本翻译API调用
-        // 可以使用有道文本翻译API: https://openapi.youdao.com/api
-        // 或者使用其他翻译服务
-        
-        // 临时返回提示信息
-        return "翻译功能开发中，请使用拍照翻译功能";
+        String apiKey = loadZhipuApiKey();
+        if (TextUtils.isEmpty(apiKey)) {
+            return "未配置智谱AI API Key";
+        }
+
+        String src = from.equalsIgnoreCase("zh-CHS") ? "zh" : from;
+        String tgt = to.equalsIgnoreCase("zh-CHS") ? "zh" : to;
+
+        ZhipuAIService service = new ZhipuAIService(apiKey);
+        CountDownLatch latch = new CountDownLatch(1);
+        final String[] resultHolder = {null};
+        final String[] errorHolder = {null};
+
+        service.translate(text, src, tgt, new TranslateCallback() {
+            @Override
+            public void onSuccess(String content) {
+                resultHolder[0] = TranslationTextProcessor.formatTranslationResult(content);
+                latch.countDown();
+            }
+
+            @Override
+            public void onError(String error) {
+                errorHolder[0] = error;
+                latch.countDown();
+            }
+        });
+
+        try {
+            boolean ok = latch.await(15, TimeUnit.SECONDS);
+            service.shutdown();
+            if (!ok) {
+                return "翻译超时，请稍后重试";
+            }
+            if (errorHolder[0] != null) {
+                return "翻译失败：" + errorHolder[0];
+            }
+            return resultHolder[0] == null ? "未获取到翻译结果" : resultHolder[0];
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "翻译被中断";
+        }
+    }
+
+    private String loadZhipuApiKey() {
+        SharedPreferences prefs = getSharedPreferences("zhipuai_config", MODE_PRIVATE);
+        String apiKey = prefs.getString("api_key", "");
+        if (TextUtils.isEmpty(apiKey)) {
+            // 兼容 ExamAnswerActivity 中的默认值，方便快速体验
+            apiKey = "e1b0c0c6ee7942908b11119e8fca3efa.w86kmtMVZLXo1vjE";
+            prefs.edit().putString("api_key", apiKey).apply();
+        }
+        return apiKey;
     }
     
     private void saveTranslationHistory(String sourceText, String translatedText) {

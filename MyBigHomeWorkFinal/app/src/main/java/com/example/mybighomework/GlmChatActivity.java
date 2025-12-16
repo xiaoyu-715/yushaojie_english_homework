@@ -15,10 +15,12 @@ import android.text.TextUtils;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.material.chip.Chip;
 import com.example.mybighomework.adapter.ChatMessageAdapter;
 import com.example.mybighomework.api.Glm46vApiService;
 import com.example.mybighomework.dialog.PlanSelectionDialog;
@@ -30,11 +32,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * GLM-4.6V-Flash（智谱）AI 聊天界面
- * 提供与 GLM-4.6V-Flash 大模型的对话功能
+ * GLM-4-Flash（智谱）AI 聊天界面
+ * 提供与 GLM-4-Flash (glm-4-flash-250414) 大模型的对话功能
  *
  * 功能：
- * 1. AI 对话 - 与 GLM-4.6V-Flash 进行智能对话
+ * 1. AI 对话 - 与 GLM-4-Flash 进行智能对话
  * 2. 英语学习助手 - 可用于翻译、语法纠错、作文批改等
  * 3. 学习建议 - 获取个性化学习建议
  * 4. 问答解惑 - 解答英语相关问题
@@ -48,9 +50,12 @@ public class GlmChatActivity extends AppCompatActivity {
     // UI 组件
     private RecyclerView rvMessages;
     private EditText etInput;
-    private ImageButton btnSend, btnBack, btnSettings, btnGeneratePlan;
-    private ProgressBar progressBar;
-    private TextView tvEmpty;
+    private ImageButton btnSend, btnBack, btnSettings, btnGeneratePlan, btnClearChat;
+    private LinearLayout layoutTypingIndicator, layoutEmpty;
+    private TextView tvEmpty, tvModelInfo;
+    
+    // 快捷功能Chip
+    private Chip chipTranslate, chipGrammar, chipEssay, chipVocabulary, chipStudyPlan;
     
     // 进度对话框
     private androidx.appcompat.app.AlertDialog progressDialog;
@@ -59,7 +64,7 @@ public class GlmChatActivity extends AppCompatActivity {
     private ChatMessageAdapter adapter;
     private List<ChatMessage> messageList;
     
-    // GLM-4.6V-Flash API 服务
+    // GLM-4-Flash API 服务
     private Glm46vApiService apiService;
     
     // 主线程 Handler
@@ -73,6 +78,73 @@ public class GlmChatActivity extends AppCompatActivity {
     private StudyPlanExtractor planExtractor;
     private int regenerateCount = 0;  // 重新生成次数计数
     private static final int MAX_REGENERATE_COUNT = 3;  // 最大重新生成次数
+    
+    // AI 流式输出节奏控制（用于让文字以平缓速度输出）
+    private static final long AI_UPDATE_INTERVAL_MS = 80L; // 每次 UI 刷新的最小间隔（毫秒），可按需微调
+    private final StringBuilder aiStreamBuffer = new StringBuilder();
+    private boolean aiUpdatePosted = false;
+    private final Runnable aiUpdateRunnable = new Runnable() {
+        @Override
+        public void run() {
+            aiUpdatePosted = false;
+            if (aiStreamBuffer.length() == 0) {
+                return;
+            }
+            
+            String bufferedText = aiStreamBuffer.toString();
+            aiStreamBuffer.setLength(0);
+            
+            // 将缓冲区的内容一次性追加到当前 AI 消息中
+            if (currentAiMessage == null) {
+                currentAiMessage = new ChatMessage(
+                        ChatMessage.TYPE_RECEIVED,
+                        bufferedText,
+                        System.currentTimeMillis()
+                );
+                messageList.add(currentAiMessage);
+                adapter.notifyItemInserted(messageList.size() - 1);
+            } else {
+                currentAiMessage.setContent(currentAiMessage.getContent() + bufferedText);
+                adapter.notifyItemChanged(messageList.size() - 1);
+            }
+            updateEmptyView();
+            
+             // 流式批量追加后，仅在接近底部时自动跟随到底部
+            scrollToBottomIfNeeded(false);
+        }
+    };
+    
+    /**
+     * 根据是否“接近底部”决定是否滚动到最新一条
+     * @param force true 时无条件滚动到底部；false 时仅在当前视图位于底部附近才滚动
+     */
+    private void scrollToBottomIfNeeded(boolean force) {
+        if (rvMessages == null || adapter == null || adapter.getItemCount() == 0) {
+            return;
+        }
+        int lastIndex = adapter.getItemCount() - 1;
+        if (lastIndex < 0) return;
+        
+        if (force || isNearBottom()) {
+            // 这里使用平滑滚动以获得更好的体验，如需“瞬间到位”可改为 scrollToPosition
+            rvMessages.smoothScrollToPosition(lastIndex);
+        }
+    }
+    
+    /**
+     * 判断 RecyclerView 是否接近底部
+     * 对标 Web 中：scrollTop + clientHeight >= scrollHeight - threshold
+     */
+    private boolean isNearBottom() {
+        if (rvMessages == null) return true;
+        
+        int offset = rvMessages.computeVerticalScrollOffset();
+        int extent = rvMessages.computeVerticalScrollExtent();
+        int range = rvMessages.computeVerticalScrollRange();
+        int threshold = 80; // 距离底部小于该阈值时认为在底部附近，可按需微调
+        
+        return offset + extent >= range - threshold;
+    }
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -97,12 +169,23 @@ public class GlmChatActivity extends AppCompatActivity {
         btnBack = findViewById(R.id.btn_back);
         btnSettings = findViewById(R.id.btn_settings);
         btnGeneratePlan = findViewById(R.id.btn_generate_plan);
-        progressBar = findViewById(R.id.progress_bar);
+        btnClearChat = findViewById(R.id.btn_clear_chat);
+        layoutTypingIndicator = findViewById(R.id.layout_typing_indicator);
+        layoutEmpty = findViewById(R.id.layout_empty);
         tvEmpty = findViewById(R.id.tv_empty);
+        tvModelInfo = findViewById(R.id.tv_model_info);
         
-        // 设置 RecyclerView
+        // 快捷功能Chip
+        chipTranslate = findViewById(R.id.chip_translate);
+        chipGrammar = findViewById(R.id.chip_grammar);
+        chipEssay = findViewById(R.id.chip_essay);
+        chipVocabulary = findViewById(R.id.chip_vocabulary);
+        chipStudyPlan = findViewById(R.id.chip_study_plan);
+        
+        // 设置 RecyclerView：列表从底部开始堆叠，保证新消息贴近输入框出现
         LinearLayoutManager layoutManager = new LinearLayoutManager(this);
         layoutManager.setStackFromEnd(true);
+        layoutManager.setReverseLayout(false);
         rvMessages.setLayoutManager(layoutManager);
     }
     
@@ -141,9 +224,12 @@ public class GlmChatActivity extends AppCompatActivity {
         // 设置按钮
         btnSettings.setOnClickListener(v -> showApiKeyDialog());
         
+        // 清空对话按钮
+        btnClearChat.setOnClickListener(v -> showClearChatDialog());
+        
         // 手动生成学习计划按钮
         btnGeneratePlan.setOnClickListener(v -> {
-            if (messageList.isEmpty()) {
+            if (messageList.isEmpty() || messageList.size() <= 1) {
                 Toast.makeText(this, "请先与AI助手进行对话", Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -163,21 +249,81 @@ public class GlmChatActivity extends AppCompatActivity {
         adapter.setOnGeneratePlanClickListener(position -> {
             generateStudyPlanFromMessage(position);
         });
+        
+        // 快捷功能Chip点击监听
+        setupQuickActionChips();
+    }
+    
+    /**
+     * 设置快捷功能Chip点击监听
+     */
+    private void setupQuickActionChips() {
+        chipTranslate.setOnClickListener(v -> {
+            etInput.setText("请帮我翻译以下内容：\n");
+            etInput.setSelection(etInput.getText().length());
+            etInput.requestFocus();
+        });
+        
+        chipGrammar.setOnClickListener(v -> {
+            etInput.setText("请帮我检查以下句子的语法错误：\n");
+            etInput.setSelection(etInput.getText().length());
+            etInput.requestFocus();
+        });
+        
+        chipEssay.setOnClickListener(v -> {
+            etInput.setText("请帮我批改以下英语作文，指出问题并给出修改建议：\n");
+            etInput.setSelection(etInput.getText().length());
+            etInput.requestFocus();
+        });
+        
+        chipVocabulary.setOnClickListener(v -> {
+            etInput.setText("请详细解释以下单词的用法和例句：\n");
+            etInput.setSelection(etInput.getText().length());
+            etInput.requestFocus();
+        });
+        
+        chipStudyPlan.setOnClickListener(v -> {
+            etInput.setText("请根据我的情况，帮我制定一个英语学习计划。我的情况是：\n");
+            etInput.setSelection(etInput.getText().length());
+            etInput.requestFocus();
+        });
+    }
+    
+    /**
+     * 显示清空对话确认对话框
+     */
+    private void showClearChatDialog() {
+        if (messageList.isEmpty() || messageList.size() <= 1) {
+            Toast.makeText(this, "暂无对话记录", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        new AlertDialog.Builder(this)
+            .setTitle("清空对话")
+            .setMessage("确定要清空所有对话记录吗？此操作不可恢复。")
+            .setPositiveButton("清空", (dialog, which) -> {
+                messageList.clear();
+                adapter.notifyDataSetChanged();
+                showWelcomeMessage();
+                Toast.makeText(this, "对话已清空", Toast.LENGTH_SHORT).show();
+            })
+            .setNegativeButton("取消", null)
+            .show();
     }
     
     /**
      * 显示欢迎消息
      */
     private void showWelcomeMessage() {
-        String welcomeText = "👋 你好！我是你的英语学习 AI 助手。\n\n" +
+        String welcomeText = "👋 你好！我是你的英语学习 AI 助手，由智谱 GLM-4-Flash 驱动。\n\n" +
                 "我可以帮你：\n" +
-                "• 翻译英文句子或文章\n" +
-                "• 纠正语法错误\n" +
-                "• 批改英语作文\n" +
-                "• 解释词汇用法\n" +
-                "• 提供学习建议\n" +
-                "• 解答英语相关问题\n\n" +
-                "请问有什么可以帮到你的吗？";
+                "🌐 翻译英文句子或文章\n" +
+                "✏️ 纠正语法错误\n" +
+                "📝 批改英语作文\n" +
+                "📚 解释词汇用法\n" +
+                "📋 制定学习计划\n" +
+                "💡 解答英语相关问题\n\n" +
+                "点击上方快捷按钮或直接输入问题开始吧！";
         
         ChatMessage welcomeMessage = new ChatMessage(
                 ChatMessage.TYPE_RECEIVED,
@@ -218,7 +364,8 @@ public class GlmChatActivity extends AppCompatActivity {
         );
         messageList.add(userMessage);
         adapter.notifyItemInserted(messageList.size() - 1);
-        rvMessages.smoothScrollToPosition(messageList.size() - 1);
+        // 用户自己发出的消息，强制滚动到底部，保证立即可见
+        scrollToBottomIfNeeded(true);
         updateEmptyView();
         
         // 显示加载状态
@@ -232,29 +379,39 @@ public class GlmChatActivity extends AppCompatActivity {
             @Override
             public void onChunk(String chunk) {
                 mainHandler.post(() -> {
-                    if (currentAiMessage == null) {
-                        // 创建新的 AI 消息
-                        currentAiMessage = new ChatMessage(
-                                ChatMessage.TYPE_RECEIVED,
-                                chunk,
-                                System.currentTimeMillis()
-                        );
-                        messageList.add(currentAiMessage);
-                        adapter.notifyItemInserted(messageList.size() - 1);
-                        rvMessages.smoothScrollToPosition(messageList.size() - 1);
-                    } else {
-                        // 追加内容到现有消息
-                        currentAiMessage.setContent(currentAiMessage.getContent() + chunk);
-                        adapter.notifyItemChanged(messageList.size() - 1);
-                        rvMessages.smoothScrollToPosition(messageList.size() - 1);
+                    // 将模型返回的内容先写入缓冲区，由定时任务按固定节奏更新到界面
+                    aiStreamBuffer.append(chunk);
+                    if (!aiUpdatePosted) {
+                        aiUpdatePosted = true;
+                        mainHandler.postDelayed(aiUpdateRunnable, AI_UPDATE_INTERVAL_MS);
                     }
-                    updateEmptyView();
                 });
             }
             
             @Override
             public void onComplete() {
                 mainHandler.post(() -> {
+                    // 确保最后一批缓冲内容被刷新到界面
+                    mainHandler.removeCallbacks(aiUpdateRunnable);
+                    aiUpdatePosted = false;
+                    if (aiStreamBuffer.length() > 0) {
+                        String remaining = aiStreamBuffer.toString();
+                        aiStreamBuffer.setLength(0);
+                        if (currentAiMessage == null && remaining.length() > 0) {
+                            currentAiMessage = new ChatMessage(
+                                    ChatMessage.TYPE_RECEIVED,
+                                    remaining,
+                                    System.currentTimeMillis()
+                            );
+                            messageList.add(currentAiMessage);
+                            adapter.notifyItemInserted(messageList.size() - 1);
+                        } else if (currentAiMessage != null) {
+                            currentAiMessage.setContent(currentAiMessage.getContent() + remaining);
+                            adapter.notifyItemChanged(messageList.size() - 1);
+                        }
+                        updateEmptyView();
+                    }
+                    
                     showLoading(false);
                     
                     // 智能检测：如果AI回复包含学习建议，自动显示生成按钮
@@ -263,6 +420,8 @@ public class GlmChatActivity extends AppCompatActivity {
                         adapter.notifyItemChanged(messageList.size() - 1);
                     }
                     
+                    // 回复完成后再滚动一次，确保最新消息可见但不频繁扰动
+                    scrollToBottomIfNeeded(false);
                     currentAiMessage = null;
                 });
             }
@@ -270,10 +429,34 @@ public class GlmChatActivity extends AppCompatActivity {
             @Override
             public void onError(String error) {
                 mainHandler.post(() -> {
+                    // 出错时清理缓冲和定时任务，避免残留
+                    mainHandler.removeCallbacks(aiUpdateRunnable);
+                    aiUpdatePosted = false;
+                    aiStreamBuffer.setLength(0);
+                    
                     showLoading(false);
                     currentAiMessage = null;
-                    Toast.makeText(GlmChatActivity.this, 
-                            "发送失败: " + error, Toast.LENGTH_LONG).show();
+                    
+                    // 根据错误类型给出更友好的提示
+                    String errorMessage;
+                    if (error != null && error.contains("401")) {
+                        errorMessage = "API Key 无效或已过期，请点击右上角设置按钮重新配置";
+                    } else if (error != null && error.contains("429")) {
+                        errorMessage = "请求过于频繁，请稍后再试";
+                    } else if (error != null && (error.contains("UnknownHost") || error.contains("Unable to resolve"))) {
+                        errorMessage = "网络连接失败，请检查网络设置";
+                    } else if (error != null && error.contains("timeout")) {
+                        errorMessage = "请求超时，请检查网络连接";
+                    } else {
+                        errorMessage = "发送失败: " + (error != null ? error : "未知错误");
+                    }
+                    
+                    Toast.makeText(GlmChatActivity.this, errorMessage, Toast.LENGTH_LONG).show();
+                    
+                    // 如果是 API Key 问题，自动弹出配置对话框
+                    if (error != null && error.contains("401")) {
+                        showApiKeyDialog();
+                    }
                 });
             }
         });
@@ -306,16 +489,27 @@ public class GlmChatActivity extends AppCompatActivity {
      * 显示/隐藏加载状态
      */
     private void showLoading(boolean show) {
-        progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
+        layoutTypingIndicator.setVisibility(show ? View.VISIBLE : View.GONE);
         btnSend.setEnabled(!show);
         etInput.setEnabled(!show);
+        
+        // 更新模型状态显示
+        if (tvModelInfo != null) {
+            tvModelInfo.setText(show ? "GLM-4-Flash · 思考中..." : "GLM-4-Flash · 在线");
+        }
     }
     
     /**
      * 更新空状态视图
      */
     private void updateEmptyView() {
-        tvEmpty.setVisibility(messageList.isEmpty() ? View.VISIBLE : View.GONE);
+        boolean isEmpty = messageList.isEmpty();
+        if (layoutEmpty != null) {
+            layoutEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        }
+        if (tvEmpty != null) {
+            tvEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        }
     }
     
     /**
@@ -323,7 +517,7 @@ public class GlmChatActivity extends AppCompatActivity {
      */
     private void showApiKeyDialog() {
         android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
-        builder.setTitle("配置 GLM-4.6V-Flash (智谱) API Key");
+        builder.setTitle("配置 GLM-4-Flash (智谱) API Key");
         
         final EditText input = new EditText(this);
         input.setHint("请输入 API Key");
@@ -363,7 +557,13 @@ public class GlmChatActivity extends AppCompatActivity {
      */
     private String getApiKey() {
         SharedPreferences prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        return prefs.getString(KEY_API_KEY, "");
+        String apiKey = prefs.getString(KEY_API_KEY, "");
+        if (TextUtils.isEmpty(apiKey)) {
+            // 兼容翻译功能的默认测试值，便于开箱体验；正式使用请在设置中覆盖
+            apiKey = "e1b0c0c6ee7942908b11119e8fca3efa.w86kmtMVZLXo1vjE";
+            prefs.edit().putString(KEY_API_KEY, apiKey).apply();
+        }
+        return apiKey;
     }
     
     /**

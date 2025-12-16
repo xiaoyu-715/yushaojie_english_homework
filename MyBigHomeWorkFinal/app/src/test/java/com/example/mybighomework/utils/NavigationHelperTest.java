@@ -27,7 +27,7 @@ import com.example.mybighomework.StudyPlanActivity;
 import com.example.mybighomework.DailySentenceActivity;
 import com.example.mybighomework.DailyTaskActivity;
 import com.example.mybighomework.CameraTranslationActivity;
-import com.example.mybighomework.DeepSeekChatActivity;
+import com.example.mybighomework.GlmChatActivity;
 import com.example.mybighomework.TextTranslationActivity;
 import com.example.mybighomework.ReportActivity;
 import com.example.mybighomework.ProfileActivity;
@@ -139,12 +139,12 @@ public class NavigationHelperTest {
     }
     
     @Test
-    public void toDeepSeekChat_shouldCreateCorrectIntent() {
+    public void toGlmChat_shouldCreateCorrectIntent() {
         try {
-            NavigationHelper.toDeepSeekChat(testActivity);
+            NavigationHelper.toGlmChat(testActivity);
             assertTrue(true);
         } catch (Exception e) {
-            fail("toDeepSeekChat should not throw exception: " + e.getMessage());
+            fail("toGlmChat should not throw exception: " + e.getMessage());
         }
     }
     

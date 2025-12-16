@@ -1,19 +1,21 @@
+# 智谱 GLM-4-Flash 接入文档
+
 ## 概览
-- 模型：GLM-4.6V-Flash（多模态，当前以文本流式返回为主）
+- 模型：GLM-4-Flash（纯文本对话模型，免费快速版）
+- 实际模型名：`glm-4-flash-250414`
 - 端点：`https://open.bigmodel.cn/api/paas/v4/chat/completions`
-- 默认模型名：`glm-4.6v-flash`
 - 主要代码：`app/src/main/java/com/example/mybighomework/api/Glm46vApiService.java`
 - 聊天界面：`app/src/main/java/com/example/mybighomework/GlmChatActivity.java`
 - API Key 存储：`SharedPreferences` 名称 `glm46v_config`，键 `api_key`
 
 ## 配置步骤
-1) 打开应用 → 更多 → AI 学习助手（GLM-4.6V-Flash）。  
-2) 首次进入会弹出 “配置 GLM-4.6V-Flash (智谱) API Key” 对话框。  
+1) 打开应用 → 更多 → AI 学习助手。  
+2) 首次进入会弹出 "配置 GLM-4-Flash (智谱) API Key" 对话框。  
 3) 粘贴从 https://open.bigmodel.cn 获取的 API Key，保存后即可对话。  
 
 ## 请求要点（已在封装内处理）
 - Header：`Authorization: Bearer <API_KEY>`，`Content-Type: application/json`
-- Body 字段：`model` 设置为 `glm-4.6v-flash`，`messages` 为数组（role/content）
+- Body 字段：`model` 设置为 `glm-4-flash-250414`，`messages` 为数组（role/content）
 - 流式：请求体添加 `"stream": true`；客户端解析 `data:` SSE 分片。
 
 ## 主要类说明
@@ -31,8 +33,14 @@
 - 调整 `Glm46vApiService.DEFAULT_MODEL`，或在调用时传入自定义 `model`。
 - 端点若有变更（如新版路径），同步更新 `API_ENDPOINT`。
 
+## 智谱模型说明
+| 模型 | 说明 |
+|------|------|
+| glm-4-flash-250414 | 免费快速版，纯文本对话（当前使用） |
+| glm-4-plus | 付费高级版，更强能力 |
+| glm-4v | 多模态版本，支持图像理解 |
+
 ## 测试要点
 - 基本对话：输入英文句子，确认流式返回正常。
 - Key 错误：应弹 Toast 显示错误。
 - 重新配置 Key：设置对话框重复打开并保存，验证可用。
-

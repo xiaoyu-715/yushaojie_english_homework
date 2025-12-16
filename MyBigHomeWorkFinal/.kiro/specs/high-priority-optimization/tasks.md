@@ -27,7 +27,7 @@
     - 实现 `toDailySentence()` 方法
     - 实现 `toDailyTask()` 方法
     - 实现 `toCameraTranslation()` 方法
-    - 实现 `toDeepSeekChat()` 方法
+    - 实现 `toGlmChat()` 方法
     - 实现 `toTextTranslation()` 方法
     - _Requirements: 3.1_
   - [x] 1.3 添加导航栏页面跳转方法

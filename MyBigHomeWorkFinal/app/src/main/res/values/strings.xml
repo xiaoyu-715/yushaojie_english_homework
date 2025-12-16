@@ -96,7 +96,7 @@
     <string name="error_stats">错题复习</string>
     <string name="suggestion_content">根据您的学习数据，建议重点关注词汇记忆和阅读理解练习</string>
 
-    <!-- GLM-4.6V-Flash AI 助手 -->
+    <!-- GLM-4-Flash AI 助手 -->
     <string name="ai_assistant">AI 学习助手</string>
     <string name="ai_assistant_desc">智能问答与学习辅导</string>
     <string name="chat_input_hint">输入消息...</string>

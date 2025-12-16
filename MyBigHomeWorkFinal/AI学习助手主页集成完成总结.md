@@ -46,7 +46,7 @@ llAiAssistant = findViewById(R.id.ll_ai_assistant);
 llAiAssistant.setOnClickListener(new View.OnClickListener() {
     @Override
     public void onClick(View v) {
-        Intent intent = new Intent(MainActivity.this, DeepSeekChatActivity.class);
+        Intent intent = new Intent(MainActivity.this, GlmChatActivity.class);
         startActivity(intent);
     }
 });
@@ -113,7 +113,7 @@ llAiAssistant.setOnClickListener(new View.OnClickListener() {
 
 ### 交互逻辑
 ```
-用户点击 → 启动 DeepSeekChatActivity → 显示AI聊天界面
+用户点击 → 启动 GlmChatActivity → 显示AI聊天界面
 ```
 
 ---
@@ -124,7 +124,7 @@ llAiAssistant.setOnClickListener(new View.OnClickListener() {
 1. 打开应用，进入主页
 2. 在核心功能区域找到"AI 学习助手"卡片
 3. 点击进入AI聊天界面
-4. 首次使用需配置 DeepSeek API Key
+4. 首次使用需配置智谱 GLM-4-Flash API Key（获取地址: https://open.bigmodel.cn）
 5. 开始与AI助手对话学习
 
 ### 典型使用场景
@@ -163,8 +163,8 @@ llAiAssistant.setOnClickListener(new View.OnClickListener() {
 ### 依赖文件（无需修改）
 - `app/src/main/res/values/strings.xml` - 字符串资源
 - `app/src/main/res/values/colors.xml` - 颜色资源
-- `app/src/main/java/com/example/mybighomework/DeepSeekChatActivity.java` - AI聊天界面
-- `app/src/main/java/com/example/mybighomework/api/DeepSeekApiService.java` - API服务
+- `app/src/main/java/com/example/mybighomework/GlmChatActivity.java` - AI聊天界面
+- `app/src/main/java/com/example/mybighomework/api/Glm46vApiService.java` - API服务（智谱GLM-4-Flash）
 
 ---
 
@@ -190,8 +190,9 @@ llAiAssistant.setOnClickListener(new View.OnClickListener() {
 
 ## 📝 注意事项
 
-1. **API Key 配置**: 首次使用AI助手需要配置 DeepSeek API Key
-   - 获取地址: https://platform.deepseek.com
+1. **API Key 配置**: 首次使用AI助手需要配置智谱 GLM-4-Flash API Key
+   - 获取地址: https://open.bigmodel.cn
+   - 使用模型: glm-4-flash-250414（免费快速版）
 
 2. **网络需求**: AI助手需要网络连接才能使用
 
@@ -217,9 +218,8 @@ llAiAssistant.setOnClickListener(new View.OnClickListener() {
 
 ## 📚 相关文档
 
-- [DeepSeek接入文档.md](DeepSeek接入文档.md) - AI功能详细说明
-- [DeepSeek接入完成总结.md](DeepSeek接入完成总结.md) - AI功能开发总结
-- [DeepSeek快速使用指南.md](DeepSeek快速使用指南.md) - AI功能使用指南
+- [智谱GLM-4-Flash接入文档.md](智谱GLM-4-Flash接入文档.md) - AI功能详细说明
+- [AI生成学习计划功能实现完成总结.md](AI生成学习计划功能实现完成总结.md) - AI学习计划生成功能
 - [应用开发文档.md](应用开发文档.md) - 应用整体文档
 
 ---

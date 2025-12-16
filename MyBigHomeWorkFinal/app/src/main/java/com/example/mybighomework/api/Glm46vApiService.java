@@ -18,8 +18,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * GLM-4.6V-Flash（智谱大模型）API 服务类
- * 用于与 GLM-4.6V-Flash 进行对话/流式交互
+ * GLM-4-Flash（智谱大模型）API 服务类
+ * 用于与 GLM-4-Flash (glm-4-flash-250414) 进行对话/流式交互
  *
  * 使用示例：
  * <pre>
@@ -41,11 +41,11 @@ public class Glm46vApiService {
     
     private static final String TAG = "Glm46vApiService";
     
-    // GLM-4.6V-Flash API 端点（智谱）
+    // GLM-4-Flash API 端点（智谱）
     private static final String API_ENDPOINT = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
     
-    // 默认模型：GLM-4.6V-Flash
-    private static final String DEFAULT_MODEL = "glm-4.6v-flash";
+    // 默认模型：GLM-4-Flash-250414（免费快速版）
+    private static final String DEFAULT_MODEL = "glm-4-flash-250414";
     
     // API Key
     private String apiKey;
@@ -124,9 +124,22 @@ public class Glm46vApiService {
             HttpURLConnection connection = null;
             
             try {
+                // 检查 API Key
+                if (apiKey == null || apiKey.isEmpty()) {
+                    Log.e(TAG, "API Key is empty or null");
+                    if (callback != null) {
+                        callback.onError("API Key 未配置");
+                    }
+                    return;
+                }
+                
                 // 构建请求体（开启流式）
                 JSONObject requestBody = buildRequestBody(messages, model);
                 requestBody.put("stream", true);
+                
+                Log.d(TAG, "Sending stream request to: " + API_ENDPOINT);
+                Log.d(TAG, "Model: " + model);
+                Log.d(TAG, "Messages count: " + messages.size());
                 
                 // 创建连接
                 URL url = new URL(API_ENDPOINT);
@@ -146,6 +159,8 @@ public class Glm46vApiService {
                 
                 // 读取流式响应
                 int responseCode = connection.getResponseCode();
+                Log.d(TAG, "Response code: " + responseCode);
+                
                 if (responseCode == HttpURLConnection.HTTP_OK) {
                     reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
                     String line;
@@ -199,9 +214,21 @@ public class Glm46vApiService {
                 }
                 
             } catch (Exception e) {
-                Log.e(TAG, "Stream chat request failed", e);
+                Log.e(TAG, "Stream chat request failed: " + e.getClass().getSimpleName() + " - " + e.getMessage(), e);
+                // 打印更详细的错误信息用于调试
+                if (e instanceof java.net.UnknownHostException) {
+                    Log.e(TAG, "Network error: Unable to resolve host. Check internet connection.");
+                } else if (e instanceof java.net.SocketTimeoutException) {
+                    Log.e(TAG, "Network error: Connection timed out.");
+                } else if (e instanceof javax.net.ssl.SSLException) {
+                    Log.e(TAG, "SSL error: " + e.getMessage());
+                }
                 if (callback != null) {
-                    callback.onError(e.getMessage());
+                    String errorMsg = e.getMessage();
+                    if (errorMsg == null || errorMsg.isEmpty()) {
+                        errorMsg = e.getClass().getSimpleName();
+                    }
+                    callback.onError(errorMsg);
                 }
             } finally {
                 try {

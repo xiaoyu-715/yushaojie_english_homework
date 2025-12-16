@@ -27,8 +27,8 @@ public class ZhipuAIService {
     // 智谱AI API 端点
     private static final String API_ENDPOINT = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
     
-    // 默认模型（使用免费的 glm-4.5-flash）
-    private static final String DEFAULT_MODEL = "glm-4.5-flash";
+    // 默认模型（使用免费的 glm-4-Flash-250414）
+    private static final String DEFAULT_MODEL = "glm-4-flash-250414";
     
     // API Key
     private String apiKey;

@@ -122,9 +122,9 @@ public class MainActivityUITest {
     }
 
     @Test
-    public void clickAiAssistant_shouldNavigateToDeepSeekChatActivity() {
+    public void clickAiAssistant_shouldNavigateToGlmChatActivity() {
         onView(withId(R.id.ll_ai_assistant)).perform(click());
-        intended(hasComponent(DeepSeekChatActivity.class.getName()));
+        intended(hasComponent(GlmChatActivity.class.getName()));
     }
 
     @Test

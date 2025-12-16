@@ -4,32 +4,56 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingStart="16dp"
+    android:paddingStart="12dp"
     android:paddingTop="4dp"
     android:paddingEnd="48dp"
     android:paddingBottom="4dp">
 
+    <!-- AI头像 -->
+    <ImageView
+        android:id="@+id/iv_avatar"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:background="@drawable/bg_avatar_ai"
+        android:padding="6dp"
+        android:src="@drawable/ic_ai_assistant"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@android:color/white" />
+
     <!-- 消息气泡 -->
     <androidx.cardview.widget.CardView
         android:id="@+id/card_message"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="4dp"
-        app:cardBackgroundColor="#FFFFFF"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="2dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="0dp"
+        android:layout_marginEnd="16dp"
+        app:cardBackgroundColor="@android:color/white"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="1dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/iv_avatar"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_max="300dp"
+        app:layout_constraintHorizontal_bias="0">
 
-        <TextView
-            android:id="@+id/tv_message"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:maxWidth="280dp"
-            android:padding="12dp"
-            android:textColor="#333333"
-            android:textSize="16sp"
-            tools:text="Hello! How can I help you?" />
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:id="@+id/tv_message"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:lineSpacingExtra="4dp"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                tools:text="你好！我是你的英语学习AI助手，有什么可以帮到你的吗？" />
+
+        </LinearLayout>
 
     </androidx.cardview.widget.CardView>
 
@@ -38,28 +62,31 @@
         android:id="@+id/tv_time"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="#999999"
-        android:textSize="12sp"
-        app:layout_constraintStart_toStartOf="@+id/card_message"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="4dp"
+        android:textColor="@color/text_hint"
+        android:textSize="11sp"
+        app:layout_constraintStart_toEndOf="@id/iv_avatar"
         app:layout_constraintTop_toBottomOf="@+id/card_message"
         tools:text="14:30" />
 
     <!-- 生成学习计划按钮 -->
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_generate_plan"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="36dp"
+        android:layout_marginStart="8dp"
         android:layout_marginTop="8dp"
-        android:text="@string/generate_study_plan"
+        android:text="✨ 生成学习计划"
+        android:textColor="@color/primary"
         android:textSize="12sp"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="6dp"
-        android:paddingBottom="6dp"
         android:visibility="gone"
-        app:layout_constraintStart_toStartOf="@+id/card_message"
+        app:cornerRadius="18dp"
+        app:layout_constraintStart_toEndOf="@id/iv_avatar"
         app:layout_constraintTop_toBottomOf="@+id/tv_time"
+        app:strokeColor="@color/primary"
+        app:strokeWidth="1dp"
         tools:visibility="visible" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
-
